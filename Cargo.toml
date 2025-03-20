@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hidapi = "2.6"
+hidapi = { version = "2.6", default-features = false, features = ["linux-static-libusb"] }

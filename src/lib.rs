@@ -1,3 +1,5 @@
+mod protocol;
+
 use std::{
     io::{self, ErrorKind},
     sync::{
@@ -66,35 +68,9 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
         for device_info in api.device_list() {
             if device_info.vendor_id() == STEAMDECK_VID_PID.0
                 && device_info.product_id() == STEAMDECK_VID_PID.1
+                && device_info.interface_number() == 2
             {
-                println!("Device:");
-                println!("path: {:?}", device_info.path());
-                println!("vendor_id: {}", device_info.vendor_id());
-                println!("product_id: {}", device_info.product_id());
-                println!("serial_number: {:?}", device_info.serial_number());
-                println!("release_number: {}", device_info.release_number());
-                println!(
-                    "manufacturer_string: {:?}",
-                    device_info.manufacturer_string()
-                );
-                println!("product_string: {:?}", device_info.product_string());
-                println!("usage_page: {}", device_info.usage_page());
-                println!("usage: {}", device_info.usage());
-                println!("interface_number: {}", device_info.interface_number());
-                println!("bus_type: {:?}", device_info.bus_type());
-                println!();
-
-                let dev = device_info.open_device(&api);
-
-                if let Ok(dev) = dev {
-                    let mut buf = [0u8; 64];
-                    if let Ok(read) = dev.read_timeout(&mut buf[..], 16) {
-                        if read > 0 {
-                            device = Ok(dev);
-                            break;
-                        }
-                    }
-                }
+                device = device_info.open_device(&api);
             }
         }
         device
