@@ -1,25 +1,40 @@
 use std::{
-    io::{self, ErrorKind},
     mem,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
 use bytemuck::{from_bytes, from_bytes_mut};
 use hidapi::{HidDevice, HidError, HidResult};
 use protocol::{
-    FeatureReportMsg, ValveInReport, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS,
-    HID_FEATURE_REPORT_BYTES,
+    FeatureReportMsg, SteamDeckStatePacket, ValveInReport,
+    FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
 };
 
 pub mod protocol;
 
+#[derive(Copy, Clone, Default, Debug)]
+pub struct GamepadState {
+    pub buttons: [u8; 15],
+    pub axes: [f32; 6],
+}
+
+impl GamepadState {
+    fn update(&mut self, new: &SteamDeckStatePacket) {}
+
+    fn fetch(&mut self) -> GamepadState {
+        GamepadState::default()
+    }
+}
+
 struct SteamdeckShared {
     run: AtomicBool,
     found: AtomicBool,
+    state: Mutex<GamepadState>,
 }
 
 pub struct SteamdeckInput {
@@ -32,6 +47,7 @@ impl SteamdeckInput {
         let shared = Arc::new(SteamdeckShared {
             found: AtomicBool::new(false),
             run: AtomicBool::new(true),
+            state: Mutex::new(GamepadState::default()),
         });
 
         let thread = Some(thread::spawn({
@@ -42,6 +58,14 @@ impl SteamdeckInput {
         }));
 
         SteamdeckInput { shared, thread }
+    }
+
+    pub fn state(&self) -> Option<GamepadState> {
+        if self.shared.found.load(Ordering::SeqCst) {
+            Some(self.shared.state.lock().unwrap().fetch())
+        } else {
+            None
+        }
     }
 }
 
@@ -60,65 +84,86 @@ impl Drop for SteamdeckInput {
     }
 }
 
+#[derive(Debug)]
+pub enum SteamDeckInputError {
+    HidError(HidError),
+    ProtocolError(String),
+}
+
+impl From<HidError> for SteamDeckInputError {
+    fn from(hid_error: HidError) -> Self {
+        SteamDeckInputError::HidError(hid_error)
+    }
+}
+
+impl From<String> for SteamDeckInputError {
+    fn from(protocol_error: String) -> Self {
+        SteamDeckInputError::ProtocolError(protocol_error)
+    }
+}
+
 const STEAMDECK_VID_PID: (u16, u16) = (0x28de, 0x1205);
 
 fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
-    let api = hidapi::HidApi::new().unwrap();
-    // Print out information about all connected devices
+    'retry: while shared.run.load(Ordering::SeqCst) {
+        if let Err(e) = handle_steam_deck_device(&shared) {
+            log::error!("SteamDeckError: {e:?}");
+        }
 
-    let device = {
-        let mut device = Err(HidError::IoError {
-            error: io::Error::new(ErrorKind::NotFound, "No steamdeck found"),
-        });
+        shared.found.store(false, Ordering::SeqCst);
+        for _ in 0..100 {
+            if !shared.run.load(Ordering::SeqCst) {
+                continue 'retry;
+            }
+            thread::sleep(Duration::from_millis(16));
+        }
+    }
+}
+
+fn handle_steam_deck_device(shared: &SteamdeckShared) -> Result<(), SteamDeckInputError> {
+    let api = hidapi::HidApi::new().unwrap();
+
+    let Some(device) = ({
+        let mut device = None;
 
         for device_info in api.device_list() {
             if device_info.vendor_id() == STEAMDECK_VID_PID.0
                 && device_info.product_id() == STEAMDECK_VID_PID.1
                 && device_info.interface_number() == 2
             {
-                device = device_info.open_device(&api);
+                device = Some(device_info.open_device(&api)?);
             }
         }
         device
+    }) else {
+        // Not finding a device is not an error
+        return Ok(());
     };
 
-    if let Ok(device) = device.as_ref() {
-        shared.found.store(true, Ordering::SeqCst);
+    shared.found.store(true, Ordering::SeqCst);
 
-        if let Err(e) = disable_deck_lizard_mode(device) {
-            println!("Failed to disable lizard mode: {e:?}");
+    disable_deck_lizard_mode(&device)?;
+
+    let mut lizard_counter = 0;
+
+    while shared.run.load(Ordering::SeqCst) {
+        let mut buf = [0u8; 64];
+        let read = device.read_timeout(&mut buf[..], 16)?;
+        if read > 0 {
+            let report = from_bytes::<ValveInReport>(&buf[..read]).to_deck_state()?;
+            shared.state.lock().unwrap().update(&report);
+        } else {
+            return Err("Read returned wrong size".to_string().into());
         }
 
-        let mut lizard_counter = 0;
-
-        while shared.run.load(Ordering::SeqCst) {
-            let mut buf = [0u8; 64];
-            if let Ok(read) = device.read_timeout(&mut buf[..], 16) {
-                if read > 0 {
-                    let report = from_bytes::<ValveInReport>(&buf[..read]).to_deck_state();
-
-                    match report {
-                        Ok(report) => {
-                            println!("Read {read}: {:#?}", report);
-                        }
-                        Err(err) => {
-                            println!("Error {read}: {:#?}", err);
-                        }
-                    }
-                }
-            }
-
-            lizard_counter += 1;
-            if lizard_counter > 200 {
-                lizard_counter = 0;
-                if let Err(e) = disable_deck_lizard_mode(device) {
-                    println!("Failed to disable lizard mode: {e:?}");
-                }
-            }
+        lizard_counter += 1;
+        if lizard_counter > 200 {
+            lizard_counter = 0;
+            disable_deck_lizard_mode(&device)?;
         }
-    } else {
-        println!("No Device");
     }
+
+    Ok(())
 }
 
 fn disable_deck_lizard_mode(device: &HidDevice) -> HidResult<()> {
