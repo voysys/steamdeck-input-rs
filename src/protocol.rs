@@ -179,18 +179,6 @@ pub union ValveInReportPayload {
     pub deck_state: SteamDeckStatePacket,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum ValveReport {
-    ValveControllerStatePacket(ValveControllerStatePacket),
-    ValveControllerBLEStatePacket(ValveControllerBLEStatePacket),
-    ValveControllerDebugPacket(ValveControllerDebugPacket),
-    ValveControllerTrackpadImage(ValveControllerTrackpadImage),
-    ValveControllerRawTrackpadImage(ValveControllerRawTrackpadImage),
-    SteamControllerWirelessEvent(SteamControllerWirelessEvent),
-    SteamControllerStatusEvent(SteamControllerStatusEvent),
-    SteamDeckStatePacket(SteamDeckStatePacket),
-}
-
 const_assert_eq!(mem::size_of::<ValveInReportPayload>(), 60);
 
 unsafe impl Zeroable for ValveInReportPayload {}
@@ -206,8 +194,9 @@ pub struct ValveInReport {
 const_assert_eq!(mem::size_of::<ValveInReport>(), 64);
 
 impl ValveInReport {
-    pub fn as_enum(&self) -> Result<ValveReport, String> {
+    pub fn as_deck_state(&self) -> Result<SteamDeckStatePacket, String> {
         if self.header.report_version != VALVE_IN_REPORT_MSG_VERSION
+            || self.header.report_type != VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE
             || self.header.report_length != 64
         {
             let version = self.header.report_version;
@@ -217,34 +206,6 @@ impl ValveInReport {
             ));
         }
 
-        unsafe {
-            Ok(match self.header.report_type {
-                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_STATE => {
-                    ValveReport::ValveControllerStatePacket(self.payload.controller_state)
-                }
-                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DEBUG => {
-                    ValveReport::ValveControllerDebugPacket(self.payload.debug_state)
-                }
-                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_WIRELESS => {
-                    ValveReport::SteamControllerWirelessEvent(self.payload.wireless_event)
-                }
-                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_STATUS => {
-                    ValveReport::SteamControllerStatusEvent(self.payload.status_event)
-                }
-                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_BLE_STATE => {
-                    ValveReport::ValveControllerBLEStatePacket(self.payload.controller_ble_state)
-                }
-                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE => {
-                    ValveReport::SteamDeckStatePacket(self.payload.deck_state)
-                }
-                _ => {
-                    let version = self.header.report_version;
-                    return Err(format!(
-                        "Got unknown steamdeck message: version: {version}, id: {} size: {}",
-                        self.header.report_type, self.header.report_length
-                    ));
-                }
-            })
-        }
+        Ok(unsafe { self.payload.deck_state })
     }
 }

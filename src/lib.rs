@@ -85,7 +85,7 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
             let mut buf = [0u8; 64];
             if let Ok(read) = device.read_timeout(&mut buf[..], 16) {
                 if read > 0 {
-                    let report = from_bytes::<ValveInReport>(&buf[..read]).as_enum();
+                    let report = from_bytes::<ValveInReport>(&buf[..read]).as_deck_state();
 
                     match report {
                         Ok(report) => {
