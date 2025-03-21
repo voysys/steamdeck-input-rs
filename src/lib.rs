@@ -1,5 +1,3 @@
-mod protocol;
-
 use std::{
     io::{self, ErrorKind},
     sync::{
@@ -10,6 +8,8 @@ use std::{
 };
 
 use hidapi::HidError;
+
+pub mod protocol;
 
 struct SteamdeckShared {
     run: AtomicBool,

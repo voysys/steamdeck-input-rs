@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bytemuck = { version = "1", features = ["derive"] }
 hidapi = { version = "2.6", default-features = false, features = ["linux-static-libusb"] }
+static_assertions = "1"
