@@ -1,26 +1,21 @@
-use std::mem;
+use std::{fmt::Debug, mem};
 
 use bytemuck::{Pod, Zeroable};
 use static_assertions::const_assert_eq;
 
-pub const K_VALVE_IN_REPORT_MSG_VERSION: u8 = 0x01;
+pub const VALVE_IN_REPORT_MSG_VERSION: u16 = 0x01;
 
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ValveInReportMessageIDs {
-    ControllerState = 1,
-    ControllerDebug = 2,
-    ControllerWireless = 3,
-    ControllerStatus = 4,
-    ControllerDebug2 = 5,
-    ControllerSecondaryState = 6,
-    ControllerBleState = 7,
-    ControllerDeckState = 9,
-    ControllerMsgCount,
-}
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_STATE: u8 = 1;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DEBUG: u8 = 2;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_WIRELESS: u8 = 3;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_STATUS: u8 = 4;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DEBUG2: u8 = 5;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_SECONDARY_STATE: u8 = 6;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_BLE_STATE: u8 = 7;
+pub const VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE: u8 = 9;
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ValveInReportHeader {
     pub report_version: u16,
     pub report_type: u8,
@@ -30,33 +25,10 @@ pub struct ValveInReportHeader {
 const_assert_eq!(mem::size_of::<ValveInReportHeader>(), 4);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
-pub struct ButtonTriggers {
-    pub pad0: [u8; 3],
-    pub n_left: u8,
-    pub n_right: u8,
-    pub pad1: [u8; 3],
-}
-
-const_assert_eq!(mem::size_of::<ButtonTriggers>(), 8);
-
-#[repr(C, packed)]
-#[derive(Copy, Clone)]
-pub union ButtonTriggerData {
-    pub buttons: u64,
-    pub triggers: ButtonTriggers,
-}
-
-const_assert_eq!(mem::size_of::<ButtonTriggerData>(), 8);
-
-unsafe impl Zeroable for ButtonTriggerData {}
-unsafe impl Pod for ButtonTriggerData {}
-
-#[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ValveControllerStatePacket {
     pub packet_num: u32,
-    pub button_trigger_data: ButtonTriggerData,
+    pub button_trigger_data: u64,
     pub left_pad_x: i16,
     pub left_pad_y: i16,
     pub right_pad_x: i16,
@@ -78,10 +50,10 @@ pub struct ValveControllerStatePacket {
 const_assert_eq!(mem::size_of::<ValveControllerStatePacket>(), 44);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ValveControllerBLEStatePacket {
     pub packet_num: u32,
-    pub button_trigger_data: ButtonTriggerData,
+    pub button_trigger_data: u64,
     pub left_pad_x: i16,
     pub left_pad_y: i16,
     pub right_pad_x: i16,
@@ -93,7 +65,7 @@ pub struct ValveControllerBLEStatePacket {
 const_assert_eq!(mem::size_of::<ValveControllerBLEStatePacket>(), 29);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ValveControllerDebugPacket {
     pub left_pad_x: i16,
     pub left_pad_y: i16,
@@ -122,7 +94,7 @@ pub struct ValveControllerDebugPacket {
 const_assert_eq!(mem::size_of::<ValveControllerDebugPacket>(), 40);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ValveControllerTrackpadImage {
     pub pad_num: u8,
     pub pad: [u8; 3],
@@ -133,7 +105,7 @@ pub struct ValveControllerTrackpadImage {
 const_assert_eq!(mem::size_of::<ValveControllerTrackpadImage>(), 46);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ValveControllerRawTrackpadImage {
     pub pad_num: u8,
     pub offset: u8,
@@ -144,7 +116,7 @@ pub struct ValveControllerRawTrackpadImage {
 const_assert_eq!(mem::size_of::<ValveControllerRawTrackpadImage>(), 60);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct SteamControllerWirelessEvent {
     pub event_type: u8,
 }
@@ -152,7 +124,7 @@ pub struct SteamControllerWirelessEvent {
 const_assert_eq!(mem::size_of::<SteamControllerWirelessEvent>(), 1);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct SteamControllerStatusEvent {
     pub packet_num: u32,
     pub event_code: u16,
@@ -164,31 +136,10 @@ pub struct SteamControllerStatusEvent {
 const_assert_eq!(mem::size_of::<SteamControllerStatusEvent>(), 11);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
-pub struct DeckStateButtonHalves {
-    pub buttons_l: u32,
-    pub buttons_h: u32,
-}
-
-const_assert_eq!(mem::size_of::<DeckStateButtonHalves>(), 8);
-
-#[repr(C, packed)]
-#[derive(Copy, Clone)]
-pub union DeckStateButtons {
-    pub buttons: u64,
-    pub halves: DeckStateButtonHalves,
-}
-
-const_assert_eq!(mem::size_of::<DeckStateButtons>(), 8);
-
-unsafe impl Zeroable for DeckStateButtons {}
-unsafe impl Pod for DeckStateButtons {}
-
-#[repr(C, packed)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct SteamDeckStatePacket {
     pub packet_num: u32,
-    pub buttons: DeckStateButtons,
+    pub buttons: u64,
     pub left_pad_x: i16,
     pub left_pad_y: i16,
     pub right_pad_x: i16,
@@ -228,6 +179,18 @@ pub union ValveInReportPayload {
     pub deck_state: SteamDeckStatePacket,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum ValveReport {
+    ValveControllerStatePacket(ValveControllerStatePacket),
+    ValveControllerBLEStatePacket(ValveControllerBLEStatePacket),
+    ValveControllerDebugPacket(ValveControllerDebugPacket),
+    ValveControllerTrackpadImage(ValveControllerTrackpadImage),
+    ValveControllerRawTrackpadImage(ValveControllerRawTrackpadImage),
+    SteamControllerWirelessEvent(SteamControllerWirelessEvent),
+    SteamControllerStatusEvent(SteamControllerStatusEvent),
+    SteamDeckStatePacket(SteamDeckStatePacket),
+}
+
 const_assert_eq!(mem::size_of::<ValveInReportPayload>(), 60);
 
 unsafe impl Zeroable for ValveInReportPayload {}
@@ -241,3 +204,47 @@ pub struct ValveInReport {
 }
 
 const_assert_eq!(mem::size_of::<ValveInReport>(), 64);
+
+impl ValveInReport {
+    pub fn as_enum(&self) -> Result<ValveReport, String> {
+        if self.header.report_version != VALVE_IN_REPORT_MSG_VERSION
+            || self.header.report_length != 64
+        {
+            let version = self.header.report_version;
+            return Err(format!(
+                "Got unknown steamdeck message: version: {version}, id: {} size: {}",
+                self.header.report_type, self.header.report_length
+            ));
+        }
+
+        unsafe {
+            Ok(match self.header.report_type {
+                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_STATE => {
+                    ValveReport::ValveControllerStatePacket(self.payload.controller_state)
+                }
+                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DEBUG => {
+                    ValveReport::ValveControllerDebugPacket(self.payload.debug_state)
+                }
+                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_WIRELESS => {
+                    ValveReport::SteamControllerWirelessEvent(self.payload.wireless_event)
+                }
+                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_STATUS => {
+                    ValveReport::SteamControllerStatusEvent(self.payload.status_event)
+                }
+                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_BLE_STATE => {
+                    ValveReport::ValveControllerBLEStatePacket(self.payload.controller_ble_state)
+                }
+                VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE => {
+                    ValveReport::SteamDeckStatePacket(self.payload.deck_state)
+                }
+                _ => {
+                    let version = self.header.report_version;
+                    return Err(format!(
+                        "Got unknown steamdeck message: version: {version}, id: {} size: {}",
+                        self.header.report_type, self.header.report_length
+                    ));
+                }
+            })
+        }
+    }
+}

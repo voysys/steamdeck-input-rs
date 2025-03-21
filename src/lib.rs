@@ -7,7 +7,9 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use bytemuck::from_bytes;
 use hidapi::HidError;
+use protocol::ValveInReport;
 
 pub mod protocol;
 
@@ -79,12 +81,20 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
     if let Ok(device) = device.as_ref() {
         shared.found.store(true, Ordering::SeqCst);
 
-        println!("OPeN");
         while shared.run.load(Ordering::SeqCst) {
             let mut buf = [0u8; 64];
             if let Ok(read) = device.read_timeout(&mut buf[..], 16) {
                 if read > 0 {
-                    println!("Read {read}: {:?}", &buf[..read]);
+                    let report = from_bytes::<ValveInReport>(&buf[..read]).as_enum();
+
+                    match report {
+                        Ok(report) => {
+                            println!("Read {read}: {:#?}", report);
+                        }
+                        Err(err) => {
+                            println!("Error {read}: {:#?}", err);
+                        }
+                    }
                 }
             }
         }
