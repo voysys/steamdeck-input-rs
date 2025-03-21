@@ -11,8 +11,10 @@ use std::{
 use bytemuck::{from_bytes, from_bytes_mut};
 use hidapi::{HidDevice, HidError, HidResult};
 use protocol::{
-    FeatureReportMsg, SteamDeckStatePacket, ValveInReport,
-    FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
+    FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTON_QUICK_ACCESS, BUTTON_A, BUTTON_B,
+    BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP, BUTTON_LEFT_BUMPER,
+    BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_RIGHT_BUMPER, BUTTON_RIGHT_STICK, BUTTON_VIEW, BUTTON_X,
+    BUTTON_Y, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
 };
 
 pub mod protocol;
@@ -23,18 +25,52 @@ pub struct GamepadState {
     pub axes: [f32; 6],
 }
 
-impl GamepadState {
-    fn update(&mut self, new: &SteamDeckStatePacket) {}
+#[derive(Copy, Clone, Default, Debug)]
+pub struct GamepadUpdateState {
+    pub gamepad: GamepadState,
+    pub fetched: bool,
+}
+
+impl GamepadUpdateState {
+    fn update(&mut self, new: &SteamDeckStatePacket) {
+        self.gamepad.axes[0] = new.left_stick_x as f32 / i16::MAX as f32;
+        self.gamepad.axes[1] = new.left_stick_y as f32 / i16::MAX as f32;
+        self.gamepad.axes[2] = new.right_stick_x as f32 / i16::MAX as f32;
+        self.gamepad.axes[3] = new.right_stick_y as f32 / i16::MAX as f32;
+        self.gamepad.axes[4] = new.trigger_raw_l as f32 / i16::MAX as f32;
+        self.gamepad.axes[5] = new.trigger_raw_r as f32 / i16::MAX as f32;
+
+        let b = &mut self.gamepad.buttons;
+
+        b[0] = (((new.buttons & BUTTON_A) > 0) || (b[0] != 0 && !self.fetched)) as u8;
+        b[1] = (((new.buttons & BUTTON_B) > 0) || (b[1] != 0 && !self.fetched)) as u8;
+        b[2] = (((new.buttons & BUTTON_X) > 0) || (b[2] != 0 && !self.fetched)) as u8;
+        b[3] = (((new.buttons & BUTTON_Y) > 0) || (b[3] != 0 && !self.fetched)) as u8;
+        b[4] = (((new.buttons & BUTTON_LEFT_BUMPER) > 0) || (b[4] != 0 && !self.fetched)) as u8;
+        b[5] = (((new.buttons & BUTTON_RIGHT_BUMPER) > 0) || (b[5] != 0 && !self.fetched)) as u8;
+        b[6] = (((new.buttons & BUTTON_VIEW) > 0) || (b[6] != 0 && !self.fetched)) as u8;
+        b[7] = (((new.buttons & BUTTON_MENU) > 0) || (b[7] != 0 && !self.fetched)) as u8;
+        b[8] = (((new.buttons & BUTON_QUICK_ACCESS) > 0) || (b[8] != 0 && !self.fetched)) as u8;
+        b[9] = (((new.buttons & BUTTON_LEFT_STICK) > 0) || (b[9] != 0 && !self.fetched)) as u8;
+        b[10] = (((new.buttons & BUTTON_RIGHT_STICK) > 0) || (b[10] != 0 && !self.fetched)) as u8;
+        b[11] = (((new.buttons & BUTTON_DPAD_UP) > 0) || (b[11] != 0 && !self.fetched)) as u8;
+        b[12] = (((new.buttons & BUTTON_DPAD_RIGHT) > 0) || (b[12] != 0 && !self.fetched)) as u8;
+        b[13] = (((new.buttons & BUTTON_DPAD_DOWN) > 0) || (b[13] != 0 && !self.fetched)) as u8;
+        b[14] = (((new.buttons & BUTTON_DPAD_LEFT) > 0) || (b[14] != 0 && !self.fetched)) as u8;
+
+        self.fetched = false;
+    }
 
     fn fetch(&mut self) -> GamepadState {
-        GamepadState::default()
+        self.fetched = true;
+        self.gamepad
     }
 }
 
 struct SteamdeckShared {
     run: AtomicBool,
     found: AtomicBool,
-    state: Mutex<GamepadState>,
+    state: Mutex<GamepadUpdateState>,
 }
 
 pub struct SteamdeckInput {
@@ -47,7 +83,7 @@ impl SteamdeckInput {
         let shared = Arc::new(SteamdeckShared {
             found: AtomicBool::new(false),
             run: AtomicBool::new(true),
-            state: Mutex::new(GamepadState::default()),
+            state: Mutex::new(GamepadUpdateState::default()),
         });
 
         let thread = Some(thread::spawn({
