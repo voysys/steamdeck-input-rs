@@ -102,3 +102,11 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
         println!("No Device");
     }
 }
+
+fn disable_deck_lizard_mode(device: &HidDevice) -> Result<(), ()> {
+    let mut buf = [0u8; 64 + 1];
+
+    
+
+    Ok(())
+}

@@ -209,3 +209,164 @@ impl ValveInReport {
         Ok(unsafe { self.payload.deck_state })
     }
 }
+
+const HID_FEATURE_REPORT_BYTES: usize = 64;
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct FeatureReportHeader {
+    report_type: u8,
+    report_length: u8,
+}
+
+const_assert_eq!(mem::size_of::<FeatureReportHeader>(), 2);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct ControllerSetting {
+    setting_num: u8,
+    setting_value: u16,
+}
+
+const_assert_eq!(mem::size_of::<ControllerSetting>(), 3);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct ControllerAttribute {
+    attribute_tag: u8,
+    attribute_value: u32,
+}
+
+const_assert_eq!(mem::size_of::<ControllerAttribute>(), 5);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgSettings {
+    settings: [ControllerSetting; 20],
+}
+
+const_assert_eq!(mem::size_of::<MsgSettings>(), 60);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgGetAttributes {
+    attributes: [ControllerAttribute; 12],
+}
+
+const_assert_eq!(mem::size_of::<MsgGetAttributes>(), 60);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgGetStringAttribute {
+    attribute_tag: u8,
+    attribute_value: [u8; 20],
+}
+
+const_assert_eq!(mem::size_of::<MsgGetStringAttribute>(), 21);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgSetControllerMode {
+    mode: u8,
+}
+
+const_assert_eq!(mem::size_of::<MsgSetControllerMode>(), 1);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgFireHapticPulse {
+    which_pad: u8,
+    pulse_duration: u16,
+    pulse_interval: u16,
+    pulse_count: u16,
+    db_gain: i16,
+    priority: u8,
+}
+
+const_assert_eq!(mem::size_of::<MsgFireHapticPulse>(), 10);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgHapticSetMode {
+    mode: u8,
+}
+
+const_assert_eq!(mem::size_of::<MsgHapticSetMode>(), 1);
+
+pub const HAPTIC_TYPE_OFF: u8 = 0;
+pub const HAPTIC_TYPE_TICK: u8 = 1;
+pub const HAPTIC_TYPE_CLICK: u8 = 2;
+pub const HAPTIC_TYPE_TONE: u8 = 3;
+pub const HAPTIC_TYPE_RUMBLE: u8 = 4;
+pub const HAPTIC_TYPE_NOISE: u8 = 5;
+pub const HAPTIC_TYPE_SCRIPT: u8 = 6;
+pub const HAPTIC_TYPE_LOG_SWEEP: u8 = 7;
+
+pub const HAPTIC_INTENSITY_SYSTEM: u8 = 0;
+pub const HAPTIC_INTENSITY_SHORT: u8 = 1;
+pub const HAPTIC_INTENSITY_MEDIUM: u8 = 2;
+pub const HAPTIC_INTENSITY_LONG: u8 = 3;
+pub const HAPTIC_INTENSITY_INSANE: u8 = 4;
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgTriggerHaptic {
+    side: u8,
+    cmd: u8,
+    ui_intensity: u8,
+    db_gain: i8,
+    freq: u16,
+    dur_ms: i16,
+    noise_intensity: u16,
+    lfo_freq: u16,
+    lfo_depth: u8,
+    rand_tone_gain: u8,
+    script_id: u8,
+    lss_start_freq: u16,
+    lss_end_freq: u16,
+}
+
+const_assert_eq!(mem::size_of::<MsgTriggerHaptic>(), 19);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+struct MsgSimpleRumbleCmd {
+    rumble_type: u8,
+    intensity: u16,
+    left_motor_speed: u16,
+    right_motor_speed: u16,
+    left_gain: i8,
+    right_gain: i8,
+}
+
+const_assert_eq!(mem::size_of::<MsgSimpleRumbleCmd>(), 9);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone)]
+pub union FeatureReportMsgPayload {
+    set_settings_values: MsgSettings,
+    get_settings_values: MsgSettings,
+    get_settings_maxs: MsgSettings,
+    get_settings_defaults: MsgSettings,
+    get_attributes: MsgGetAttributes,
+    controller_mode: MsgSetControllerMode,
+    fire_haptic_pulse: MsgFireHapticPulse,
+    get_string_attribute: MsgGetStringAttribute,
+    haptic_hode: MsgHapticSetMode,
+    trigger_haptic: MsgTriggerHaptic,
+    simple_rumble: MsgSimpleRumbleCmd,
+}
+
+const_assert_eq!(mem::size_of::<FeatureReportMsgPayload>(), 60);
+
+unsafe impl Zeroable for FeatureReportMsgPayload {}
+unsafe impl Pod for FeatureReportMsgPayload {}
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Zeroable, Pod)]
+struct FeatureReportMsg {
+    header: FeatureReportHeader,
+    payload: FeatureReportMsgPayload,
+}
+
+const_assert_eq!(mem::size_of::<FeatureReportMsg>(), 62);
