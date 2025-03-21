@@ -210,85 +210,85 @@ impl ValveInReport {
     }
 }
 
-const HID_FEATURE_REPORT_BYTES: usize = 64;
+pub const HID_FEATURE_REPORT_BYTES: usize = 64;
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct FeatureReportHeader {
-    report_type: u8,
-    report_length: u8,
+pub struct FeatureReportHeader {
+    pub report_type: u8,
+    pub report_length: u8,
 }
 
 const_assert_eq!(mem::size_of::<FeatureReportHeader>(), 2);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct ControllerSetting {
-    setting_num: u8,
-    setting_value: u16,
+pub struct ControllerSetting {
+    pub setting_num: u8,
+    pub setting_value: u16,
 }
 
 const_assert_eq!(mem::size_of::<ControllerSetting>(), 3);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct ControllerAttribute {
-    attribute_tag: u8,
-    attribute_value: u32,
+pub struct ControllerAttribute {
+    pub attribute_tag: u8,
+    pub attribute_value: u32,
 }
 
 const_assert_eq!(mem::size_of::<ControllerAttribute>(), 5);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgSettings {
-    settings: [ControllerSetting; 20],
+pub struct MsgSettings {
+    pub settings: [ControllerSetting; 20],
 }
 
 const_assert_eq!(mem::size_of::<MsgSettings>(), 60);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgGetAttributes {
-    attributes: [ControllerAttribute; 12],
+pub struct MsgGetAttributes {
+    pub attributes: [ControllerAttribute; 12],
 }
 
 const_assert_eq!(mem::size_of::<MsgGetAttributes>(), 60);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgGetStringAttribute {
-    attribute_tag: u8,
-    attribute_value: [u8; 20],
+pub struct MsgGetStringAttribute {
+    pub attribute_tag: u8,
+    pub attribute_value: [u8; 20],
 }
 
 const_assert_eq!(mem::size_of::<MsgGetStringAttribute>(), 21);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgSetControllerMode {
-    mode: u8,
+pub struct MsgSetControllerMode {
+    pub mode: u8,
 }
 
 const_assert_eq!(mem::size_of::<MsgSetControllerMode>(), 1);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgFireHapticPulse {
-    which_pad: u8,
-    pulse_duration: u16,
-    pulse_interval: u16,
-    pulse_count: u16,
-    db_gain: i16,
-    priority: u8,
+pub struct MsgFireHapticPulse {
+    pub which_pad: u8,
+    pub pulse_duration: u16,
+    pub pulse_interval: u16,
+    pub pulse_count: u16,
+    pub db_gain: i16,
+    pub priority: u8,
 }
 
 const_assert_eq!(mem::size_of::<MsgFireHapticPulse>(), 10);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgHapticSetMode {
-    mode: u8,
+pub struct MsgHapticSetMode {
+    pub mode: u8,
 }
 
 const_assert_eq!(mem::size_of::<MsgHapticSetMode>(), 1);
@@ -310,33 +310,33 @@ pub const HAPTIC_INTENSITY_INSANE: u8 = 4;
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgTriggerHaptic {
-    side: u8,
-    cmd: u8,
-    ui_intensity: u8,
-    db_gain: i8,
-    freq: u16,
-    dur_ms: i16,
-    noise_intensity: u16,
-    lfo_freq: u16,
-    lfo_depth: u8,
-    rand_tone_gain: u8,
-    script_id: u8,
-    lss_start_freq: u16,
-    lss_end_freq: u16,
+pub struct MsgTriggerHaptic {
+    pub side: u8,
+    pub cmd: u8,
+    pub ui_intensity: u8,
+    pub db_gain: i8,
+    pub freq: u16,
+    pub dur_ms: i16,
+    pub noise_intensity: u16,
+    pub lfo_freq: u16,
+    pub lfo_depth: u8,
+    pub rand_tone_gain: u8,
+    pub script_id: u8,
+    pub lss_start_freq: u16,
+    pub lss_end_freq: u16,
 }
 
 const_assert_eq!(mem::size_of::<MsgTriggerHaptic>(), 19);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
-struct MsgSimpleRumbleCmd {
-    rumble_type: u8,
-    intensity: u16,
-    left_motor_speed: u16,
-    right_motor_speed: u16,
-    left_gain: i8,
-    right_gain: i8,
+pub struct MsgSimpleRumbleCmd {
+    pub rumble_type: u8,
+    pub intensity: u16,
+    pub left_motor_speed: u16,
+    pub right_motor_speed: u16,
+    pub left_gain: i8,
+    pub right_gain: i8,
 }
 
 const_assert_eq!(mem::size_of::<MsgSimpleRumbleCmd>(), 9);
@@ -344,17 +344,17 @@ const_assert_eq!(mem::size_of::<MsgSimpleRumbleCmd>(), 9);
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 pub union FeatureReportMsgPayload {
-    set_settings_values: MsgSettings,
-    get_settings_values: MsgSettings,
-    get_settings_maxs: MsgSettings,
-    get_settings_defaults: MsgSettings,
-    get_attributes: MsgGetAttributes,
-    controller_mode: MsgSetControllerMode,
-    fire_haptic_pulse: MsgFireHapticPulse,
-    get_string_attribute: MsgGetStringAttribute,
-    haptic_hode: MsgHapticSetMode,
-    trigger_haptic: MsgTriggerHaptic,
-    simple_rumble: MsgSimpleRumbleCmd,
+    pub set_settings_values: MsgSettings,
+    pub get_settings_values: MsgSettings,
+    pub get_settings_maxs: MsgSettings,
+    pub get_settings_defaults: MsgSettings,
+    pub get_attributes: MsgGetAttributes,
+    pub controller_mode: MsgSetControllerMode,
+    pub fire_haptic_pulse: MsgFireHapticPulse,
+    pub get_string_attribute: MsgGetStringAttribute,
+    pub haptic_hode: MsgHapticSetMode,
+    pub trigger_haptic: MsgTriggerHaptic,
+    pub simple_rumble: MsgSimpleRumbleCmd,
 }
 
 const_assert_eq!(mem::size_of::<FeatureReportMsgPayload>(), 60);
@@ -364,9 +364,57 @@ unsafe impl Pod for FeatureReportMsgPayload {}
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Zeroable, Pod)]
-struct FeatureReportMsg {
-    header: FeatureReportHeader,
-    payload: FeatureReportMsgPayload,
+pub struct FeatureReportMsg {
+    pub header: FeatureReportHeader,
+    pub payload: FeatureReportMsgPayload,
 }
 
 const_assert_eq!(mem::size_of::<FeatureReportMsg>(), 62);
+
+pub const FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS: u8 = 0x80;
+pub const FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS: u8 = 0x81;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_DIGITAL_MAPPINGS: u8 = 0x82;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_ATTRIBUTES_VALUES: u8 = 0x83;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_ATTRIBUTE_LABEL: u8 = 0x84;
+pub const FEATURE_REPORT_MESSAGE_ID_SET_DEFAULT_DIGITAL_MAPPINGS: u8 = 0x85;
+pub const FEATURE_REPORT_MESSAGE_ID_FACTORY_RESET: u8 = 0x86;
+pub const FEATURE_REPORT_MESSAGE_ID_SET_SETTINGS_VALUES: u8 = 0x87;
+pub const FEATURE_REPORT_MESSAGE_ID_CLEAR_SETTINGS_VALUES: u8 = 0x88;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_SETTINGS_VALUES: u8 = 0x89;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_SETTING_LABEL: u8 = 0x8A;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_SETTINGS_MAXS: u8 = 0x8B;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_SETTINGS_DEFAULTS: u8 = 0x8C;
+pub const FEATURE_REPORT_MESSAGE_ID_SET_CONTROLLER_MODE: u8 = 0x8D;
+pub const FEATURE_REPORT_MESSAGE_ID_LOAD_DEFAULT_SETTINGS: u8 = 0x8E;
+pub const FEATURE_REPORT_MESSAGE_ID_TRIGGER_HAPTIC_PULSE: u8 = 0x8F;
+pub const FEATURE_REPORT_MESSAGE_ID_TURN_OFF_CONTROLLER: u8 = 0x9F;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_DEVICE_INFO: u8 = 0xA1;
+pub const FEATURE_REPORT_MESSAGE_ID_CALIBRATE_TRACKPADS: u8 = 0xA7;
+pub const FEATURE_REPORT_MESSAGE_ID_RESERVED_0: u8 = 0xA8;
+pub const FEATURE_REPORT_MESSAGE_ID_SET_SERIAL_NUMBER: u8 = 0xA9;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_TRACKPAD_CALIBRATION: u8 = 0xAA;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_TRACKPAD_FACTORY_CALIBRATION: u8 = 0xAB;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_TRACKPAD_RAW_DATA: u8 = 0xAC;
+pub const FEATURE_REPORT_MESSAGE_ID_ENABLE_PAIRING: u8 = 0xAD;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_STRING_ATTRIBUTE: u8 = 0xAE;
+pub const FEATURE_REPORT_MESSAGE_ID_RADIO_ERASE_RECORDS: u8 = 0xAF;
+pub const FEATURE_REPORT_MESSAGE_ID_RADIO_WRITE_RECORD: u8 = 0xB0;
+pub const FEATURE_REPORT_MESSAGE_ID_SET_DONGLE_SETTING: u8 = 0xB1;
+pub const FEATURE_REPORT_MESSAGE_ID_DONGLE_DISCONNECT_DEVICE: u8 = 0xB2;
+pub const FEATURE_REPORT_MESSAGE_ID_DONGLE_COMMIT_DEVICE: u8 = 0xB3;
+pub const FEATURE_REPORT_MESSAGE_ID_DONGLE_GET_WIRELESS_STATE: u8 = 0xB4;
+pub const FEATURE_REPORT_MESSAGE_ID_CALIBRATE_GYRO: u8 = 0xB5;
+pub const FEATURE_REPORT_MESSAGE_ID_PLAY_AUDIO: u8 = 0xB6;
+pub const FEATURE_REPORT_MESSAGE_ID_AUDIO_UPDATE_START: u8 = 0xB7;
+pub const FEATURE_REPORT_MESSAGE_ID_AUDIO_UPDATE_DATA: u8 = 0xB8;
+pub const FEATURE_REPORT_MESSAGE_ID_AUDIO_UPDATE_COMPLETE: u8 = 0xB9;
+pub const FEATURE_REPORT_MESSAGE_ID_GET_CHIPID: u8 = 0xBA;
+pub const FEATURE_REPORT_MESSAGE_ID_CALIBRATE_JOYSTICK: u8 = 0xBF;
+pub const FEATURE_REPORT_MESSAGE_ID_CALIBRATE_ANALOG_TRIGGERS: u8 = 0xC0;
+pub const FEATURE_REPORT_MESSAGE_ID_SET_AUDIO_MAPPING: u8 = 0xC1;
+pub const FEATURE_REPORT_MESSAGE_ID_CHECK_GYRO_FW_LOAD: u8 = 0xC2;
+pub const FEATURE_REPORT_MESSAGE_ID_CALIBRATE_ANALOG: u8 = 0xC3;
+pub const FEATURE_REPORT_MESSAGE_ID_DONGLE_GET_CONNECTED_SLOTS: u8 = 0xC4;
+pub const FEATURE_REPORT_MESSAGE_ID_RESET_IMU: u8 = 0xCE;
+pub const FEATURE_REPORT_MESSAGE_ID_TRIGGER_HAPTIC_CMD: u8 = 0xEA;
+pub const FEATURE_REPORT_MESSAGE_ID_TRIGGER_RUMBLE_CMD: u8 = 0xEB;
