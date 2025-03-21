@@ -7,7 +7,7 @@ fn main() {
 
     loop {
         sleep(Duration::from_millis(1000));
-        if let Some(state) = steamdeck_input.state() {
+        if let Some(state) = steamdeck_input.fetch() {
             println!("{state:?}");
         }
     }

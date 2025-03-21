@@ -96,7 +96,7 @@ impl SteamdeckInput {
         SteamdeckInput { shared, thread }
     }
 
-    pub fn state(&self) -> Option<GamepadState> {
+    pub fn fetch(&self) -> Option<GamepadState> {
         if self.shared.found.load(Ordering::SeqCst) {
             Some(self.shared.state.lock().unwrap().fetch())
         } else {
