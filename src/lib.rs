@@ -1,5 +1,6 @@
 use std::{
     io::{self, ErrorKind},
+    mem,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -7,9 +8,12 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use bytemuck::from_bytes;
-use hidapi::{HidDevice, HidError};
-use protocol::ValveInReport;
+use bytemuck::{from_bytes, from_bytes_mut};
+use hidapi::{HidDevice, HidError, HidResult};
+use protocol::{
+    FeatureReportMsg, ValveInReport, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS,
+    HID_FEATURE_REPORT_BYTES,
+};
 
 pub mod protocol;
 
@@ -81,6 +85,12 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
     if let Ok(device) = device.as_ref() {
         shared.found.store(true, Ordering::SeqCst);
 
+        if let Err(e) = disable_deck_lizard_mode(device) {
+            println!("Failed to disable lizard mode: {e:?}");
+        }
+
+        let mut lizard_counter = 0;
+
         while shared.run.load(Ordering::SeqCst) {
             let mut buf = [0u8; 64];
             if let Ok(read) = device.read_timeout(&mut buf[..], 16) {
@@ -97,14 +107,28 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
                     }
                 }
             }
+
+            lizard_counter += 1;
+            if lizard_counter > 200 {
+                lizard_counter = 0;
+                if let Err(e) = disable_deck_lizard_mode(device) {
+                    println!("Failed to disable lizard mode: {e:?}");
+                }
+            }
         }
     } else {
         println!("No Device");
     }
 }
 
-fn disable_deck_lizard_mode(device: &HidDevice) -> Result<(), ()> {
-    let mut buf = [0u8; 64 + 1];
+fn disable_deck_lizard_mode(device: &HidDevice) -> HidResult<()> {
+    let mut buf = [0u8; HID_FEATURE_REPORT_BYTES + 1];
+    let msg =
+        from_bytes_mut::<FeatureReportMsg>(&mut buf[1..(1 + mem::size_of::<FeatureReportMsg>())]);
+
+    msg.header.report_type = FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS;
+
+    device.send_feature_report(&buf[..])?;
 
     Ok(())
 }
