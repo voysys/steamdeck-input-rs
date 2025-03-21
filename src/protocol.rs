@@ -194,7 +194,7 @@ pub struct ValveInReport {
 const_assert_eq!(mem::size_of::<ValveInReport>(), 64);
 
 impl ValveInReport {
-    pub fn as_deck_state(&self) -> Result<SteamDeckStatePacket, String> {
+    pub fn to_deck_state(&self) -> Result<SteamDeckStatePacket, String> {
         if self.header.report_version != VALVE_IN_REPORT_MSG_VERSION
             || self.header.report_type != VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE
             || self.header.report_length != 64

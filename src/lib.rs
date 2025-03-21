@@ -85,7 +85,7 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
             let mut buf = [0u8; 64];
             if let Ok(read) = device.read_timeout(&mut buf[..], 16) {
                 if read > 0 {
-                    let report = from_bytes::<ValveInReport>(&buf[..read]).as_deck_state();
+                    let report = from_bytes::<ValveInReport>(&buf[..read]).to_deck_state();
 
                     match report {
                         Ok(report) => {
@@ -101,18 +101,4 @@ fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
     } else {
         println!("No Device");
     }
-
-    // Connect to device using its VID and PID
-    //let (VID, PID) = (0x0123, 0x3456);
-    //let device = api.open(VID, PID).unwrap();
-
-    // Read data from device
-    //let mut buf = [0u8; 8];
-    //let res = device.read(&mut buf[..]).unwrap();
-    //println!("Read: {:?}", &buf[..res]);
-
-    // Write data to device
-    //let buf = [0u8, 1, 2, 3, 4];
-    //let res = device.write(&buf).unwrap();
-    //println!("Wrote: {:?} byte(s)", res);
 }
