@@ -34,12 +34,14 @@ pub struct GamepadUpdateState {
 
 impl GamepadUpdateState {
     fn update(&mut self, new: &SteamDeckStatePacket) {
-        self.gamepad.axes[0] = new.left_stick_x as f32 / i16::MAX as f32;
-        self.gamepad.axes[1] = new.left_stick_y as f32 / i16::MAX as f32;
-        self.gamepad.axes[2] = new.right_stick_x as f32 / i16::MAX as f32;
-        self.gamepad.axes[3] = new.right_stick_y as f32 / i16::MAX as f32;
-        self.gamepad.axes[4] = new.trigger_raw_l as f32 / i16::MAX as f32;
-        self.gamepad.axes[5] = new.trigger_raw_r as f32 / i16::MAX as f32;
+        self.gamepad.axes[0] = (new.left_stick_x as f32 / i16::MAX as f32).clamp(0.0, 1.0);
+        self.gamepad.axes[1] = (new.left_stick_y as f32 / i16::MAX as f32).clamp(0.0, 1.0);
+        self.gamepad.axes[2] = (new.right_stick_x as f32 / i16::MAX as f32).clamp(0.0, 1.0);
+        self.gamepad.axes[3] = (new.right_stick_y as f32 / i16::MAX as f32).clamp(0.0, 1.0);
+        self.gamepad.axes[4] =
+            (new.trigger_raw_l as f32 / i16::MAX as f32).clamp(0.0, 1.0) * 2.0 - 1.0;
+        self.gamepad.axes[5] =
+            (new.trigger_raw_r as f32 / i16::MAX as f32).clamp(0.0, 1.0) * 2.0 - 1.0;
 
         let b = &mut self.gamepad.buttons;
 
