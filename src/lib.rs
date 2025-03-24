@@ -5,7 +5,7 @@ use std::{
         Arc, Mutex,
     },
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use bytemuck::{from_bytes, from_bytes_mut};
@@ -25,9 +25,10 @@ pub struct GamepadState {
     pub axes: [f32; 6],
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct GamepadUpdateState {
     pub gamepad: GamepadState,
+    pub last_update_time: Instant,
     pub fetched: bool,
 }
 
@@ -58,12 +59,17 @@ impl GamepadUpdateState {
         b[13] = (((new.buttons & BUTTON_DPAD_DOWN) > 0) || (b[13] != 0 && !self.fetched)) as u8;
         b[14] = (((new.buttons & BUTTON_DPAD_LEFT) > 0) || (b[14] != 0 && !self.fetched)) as u8;
 
+        self.last_update_time = Instant::now();
         self.fetched = false;
     }
 
-    fn fetch(&mut self) -> GamepadState {
+    fn fetch(&mut self) -> Option<GamepadState> {
         self.fetched = true;
-        self.gamepad
+        if self.last_update_time.elapsed() < Duration::from_millis(100) {
+            Some(self.gamepad)
+        } else {
+            None
+        }
     }
 }
 
@@ -83,7 +89,11 @@ impl SteamdeckInput {
         let shared = Arc::new(SteamdeckShared {
             found: AtomicBool::new(false),
             run: AtomicBool::new(true),
-            state: Mutex::new(GamepadUpdateState::default()),
+            state: Mutex::new(GamepadUpdateState {
+                gamepad: Default::default(),
+                last_update_time: Instant::now(),
+                fetched: false,
+            }),
         });
 
         let thread = Some(thread::spawn({
@@ -98,7 +108,7 @@ impl SteamdeckInput {
 
     pub fn fetch(&self) -> Option<GamepadState> {
         if self.shared.found.load(Ordering::SeqCst) {
-            Some(self.shared.state.lock().unwrap().fetch())
+            self.shared.state.lock().unwrap().fetch()
         } else {
             None
         }
