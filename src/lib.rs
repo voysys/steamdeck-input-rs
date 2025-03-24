@@ -11,10 +11,12 @@ use std::{
 use bytemuck::{from_bytes, from_bytes_mut};
 use hidapi::{HidDevice, HidError, HidResult};
 use protocol::{
-    FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTON_QUICK_ACCESS, BUTTON_A, BUTTON_B,
-    BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP, BUTTON_LEFT_BUMPER,
-    BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_RIGHT_BUMPER, BUTTON_RIGHT_STICK, BUTTON_VIEW, BUTTON_X,
-    BUTTON_Y, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
+    DigitalMapping, FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTON_QUICK_ACCESS,
+    BUTTON_A, BUTTON_B, BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP,
+    BUTTON_LEFT_BUMPER, BUTTON_LEFT_PAD, BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_RIGHT_BUMPER,
+    BUTTON_RIGHT_PAD, BUTTON_RIGHT_STICK, BUTTON_VIEW, BUTTON_X, BUTTON_Y,
+    FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS,
+    FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
 };
 
 pub mod protocol;
@@ -215,13 +217,34 @@ fn handle_steam_deck_device(shared: &SteamdeckShared) -> Result<(), SteamDeckInp
 }
 
 fn disable_deck_lizard_mode(device: &HidDevice) -> HidResult<()> {
-    let mut buf = [0u8; HID_FEATURE_REPORT_BYTES + 1];
-    let msg =
-        from_bytes_mut::<FeatureReportMsg>(&mut buf[1..(1 + mem::size_of::<FeatureReportMsg>())]);
+    {
+        let mut buf = [0u8; HID_FEATURE_REPORT_BYTES + 1];
+        let msg = from_bytes_mut::<FeatureReportMsg>(
+            &mut buf[1..(1 + mem::size_of::<FeatureReportMsg>())],
+        );
 
-    msg.header.report_type = FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS;
+        msg.header.report_type = FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS;
+        device.send_feature_report(&buf[..])?;
+    }
 
-    device.send_feature_report(&buf[..])?;
+    {
+        let mut buf = [0u8; HID_FEATURE_REPORT_BYTES + 1];
+        let msg = from_bytes_mut::<FeatureReportMsg>(
+            &mut buf[1..(1 + mem::size_of::<FeatureReportMsg>())],
+        );
+
+        msg.header.report_type = FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS;
+        msg.header.report_length = (2 * mem::size_of::<DigitalMapping>()) as u8;
+        unsafe {
+            msg.payload.set_digital_mappings.mappings[0].buttons = BUTTON_RIGHT_PAD;
+            msg.payload.set_digital_mappings.mappings[0].emulated_device_type = 1;
+            msg.payload.set_digital_mappings.mappings[0].emulated_button = 1;
+            msg.payload.set_digital_mappings.mappings[1].buttons = BUTTON_LEFT_PAD;
+            msg.payload.set_digital_mappings.mappings[1].emulated_device_type = 1;
+            msg.payload.set_digital_mappings.mappings[1].emulated_button = 2;
+        }
+        device.send_feature_report(&buf[..])?;
+    }
 
     Ok(())
 }

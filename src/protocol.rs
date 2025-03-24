@@ -223,6 +223,24 @@ const_assert_eq!(mem::size_of::<FeatureReportHeader>(), 2);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
+pub struct DigitalMapping {
+    pub buttons: u64,
+    pub emulated_device_type: u8,
+    pub emulated_button: u8,
+}
+
+const_assert_eq!(mem::size_of::<DigitalMapping>(), 10);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+pub struct MsgSetDigitalMappings {
+    pub mappings: [DigitalMapping; 6],
+}
+
+const_assert_eq!(mem::size_of::<MsgSettings>(), 60);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ControllerSetting {
     pub setting_num: u8,
     pub setting_value: u16,
@@ -232,20 +250,20 @@ const_assert_eq!(mem::size_of::<ControllerSetting>(), 3);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
+pub struct MsgSettings {
+    pub settings: [ControllerSetting; 20],
+}
+
+const_assert_eq!(mem::size_of::<MsgSettings>(), 60);
+
+#[repr(C, packed)]
+#[derive(Copy, Clone, Debug, Zeroable, Pod)]
 pub struct ControllerAttribute {
     pub attribute_tag: u8,
     pub attribute_value: u32,
 }
 
 const_assert_eq!(mem::size_of::<ControllerAttribute>(), 5);
-
-#[repr(C, packed)]
-#[derive(Copy, Clone, Debug, Zeroable, Pod)]
-pub struct MsgSettings {
-    pub settings: [ControllerSetting; 20],
-}
-
-const_assert_eq!(mem::size_of::<MsgSettings>(), 60);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, Zeroable, Pod)]
@@ -344,6 +362,7 @@ const_assert_eq!(mem::size_of::<MsgSimpleRumbleCmd>(), 9);
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 pub union FeatureReportMsgPayload {
+    pub set_digital_mappings: MsgSetDigitalMappings,
     pub set_settings_values: MsgSettings,
     pub get_settings_values: MsgSettings,
     pub get_settings_maxs: MsgSettings,
@@ -443,3 +462,5 @@ pub const BUTTON_RIGHT_STICK: u64 = 0x4000000;
 pub const BUTTON_LEFT_STICK: u64 = 0x400000;
 pub const RIGHT_STICK_USED: u64 = 0x800000000000;
 pub const LEFT_STICK_USED: u64 = 0x400000000000;
+pub const BUTTON_LEFT_PAD: u64 = 0x00020000;
+pub const BUTTON_RIGHT_PAD: u64 = 0x00040000;
