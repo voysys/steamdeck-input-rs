@@ -11,14 +11,19 @@ use std::{
 use bytemuck::{from_bytes, from_bytes_mut};
 use hidapi::{HidDevice, HidError, HidResult};
 use protocol::{
-    DigitalMapping, FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTON_QUICK_ACCESS, BUTTON_A, BUTTON_B, BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP, BUTTON_L4, BUTTON_L5, BUTTON_LEFT_BUMPER, BUTTON_LEFT_PAD, BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_R4, BUTTON_R5, BUTTON_RIGHT_BUMPER, BUTTON_RIGHT_PAD, BUTTON_RIGHT_STICK, BUTTON_VIEW, BUTTON_X, BUTTON_Y, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS, FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES
+    DigitalMapping, FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTTON_A, BUTTON_B,
+    BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP, BUTTON_L4, BUTTON_L5,
+    BUTTON_LEFT_BUMPER, BUTTON_LEFT_PAD, BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_QUICK_ACCESS,
+    BUTTON_R4, BUTTON_R5, BUTTON_RIGHT_BUMPER, BUTTON_RIGHT_PAD, BUTTON_RIGHT_STICK, BUTTON_STEAM,
+    BUTTON_VIEW, BUTTON_X, BUTTON_Y, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS,
+    FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
 };
 
 pub mod protocol;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct GamepadState {
-    pub buttons: [u8; 19],
+    pub buttons: [u8; 22],
     pub axes: [f32; 6],
 }
 
@@ -50,7 +55,7 @@ impl GamepadUpdateState {
         b[5] = (((new.buttons & BUTTON_RIGHT_BUMPER) > 0) || (b[5] != 0 && !self.fetched)) as u8;
         b[6] = (((new.buttons & BUTTON_VIEW) > 0) || (b[6] != 0 && !self.fetched)) as u8;
         b[7] = (((new.buttons & BUTTON_MENU) > 0) || (b[7] != 0 && !self.fetched)) as u8;
-        b[8] = (((new.buttons & BUTON_QUICK_ACCESS) > 0) || (b[8] != 0 && !self.fetched)) as u8;
+        b[8] = (((new.buttons & BUTTON_QUICK_ACCESS) > 0) || (b[8] != 0 && !self.fetched)) as u8;
         b[9] = (((new.buttons & BUTTON_LEFT_STICK) > 0) || (b[9] != 0 && !self.fetched)) as u8;
         b[10] = (((new.buttons & BUTTON_RIGHT_STICK) > 0) || (b[10] != 0 && !self.fetched)) as u8;
         b[11] = (((new.buttons & BUTTON_DPAD_UP) > 0) || (b[11] != 0 && !self.fetched)) as u8;
@@ -61,6 +66,9 @@ impl GamepadUpdateState {
         b[16] = (((new.buttons & BUTTON_R5) > 0) || (b[16] != 0 && !self.fetched)) as u8;
         b[17] = (((new.buttons & BUTTON_L4) > 0) || (b[17] != 0 && !self.fetched)) as u8;
         b[18] = (((new.buttons & BUTTON_L5) > 0) || (b[18] != 0 && !self.fetched)) as u8;
+        b[19] = (((new.buttons & BUTTON_STEAM) > 0) || (b[19] != 0 && !self.fetched)) as u8;
+        b[20] = (((new.buttons & BUTTON_LEFT_PAD) > 0) || (b[20] != 0 && !self.fetched)) as u8;
+        b[21] = (((new.buttons & BUTTON_RIGHT_PAD) > 0) || (b[21] != 0 && !self.fetched)) as u8;
 
         self.last_update_time = Instant::now();
         self.fetched = false;
