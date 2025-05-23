@@ -11,19 +11,14 @@ use std::{
 use bytemuck::{from_bytes, from_bytes_mut};
 use hidapi::{HidDevice, HidError, HidResult};
 use protocol::{
-    DigitalMapping, FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTON_QUICK_ACCESS,
-    BUTTON_A, BUTTON_B, BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP,
-    BUTTON_LEFT_BUMPER, BUTTON_LEFT_PAD, BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_RIGHT_BUMPER,
-    BUTTON_RIGHT_PAD, BUTTON_RIGHT_STICK, BUTTON_VIEW, BUTTON_X, BUTTON_Y,
-    FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS,
-    FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES,
+    DigitalMapping, FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTON_QUICK_ACCESS, BUTTON_A, BUTTON_B, BUTTON_DPAD_DOWN, BUTTON_DPAD_LEFT, BUTTON_DPAD_RIGHT, BUTTON_DPAD_UP, BUTTON_L4, BUTTON_L5, BUTTON_LEFT_BUMPER, BUTTON_LEFT_PAD, BUTTON_LEFT_STICK, BUTTON_MENU, BUTTON_R4, BUTTON_R5, BUTTON_RIGHT_BUMPER, BUTTON_RIGHT_PAD, BUTTON_RIGHT_STICK, BUTTON_VIEW, BUTTON_X, BUTTON_Y, FEATURE_REPORT_MESSAGE_ID_CLEAR_DIGITAL_MAPPINGS, FEATURE_REPORT_MESSAGE_ID_SET_DIGITAL_MAPPINGS, HID_FEATURE_REPORT_BYTES
 };
 
 pub mod protocol;
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct GamepadState {
-    pub buttons: [u8; 15],
+    pub buttons: [u8; 19],
     pub axes: [f32; 6],
 }
 
@@ -62,6 +57,10 @@ impl GamepadUpdateState {
         b[12] = (((new.buttons & BUTTON_DPAD_RIGHT) > 0) || (b[12] != 0 && !self.fetched)) as u8;
         b[13] = (((new.buttons & BUTTON_DPAD_DOWN) > 0) || (b[13] != 0 && !self.fetched)) as u8;
         b[14] = (((new.buttons & BUTTON_DPAD_LEFT) > 0) || (b[14] != 0 && !self.fetched)) as u8;
+        b[15] = (((new.buttons & BUTTON_R4) > 0) || (b[15] != 0 && !self.fetched)) as u8;
+        b[16] = (((new.buttons & BUTTON_R5) > 0) || (b[16] != 0 && !self.fetched)) as u8;
+        b[17] = (((new.buttons & BUTTON_L4) > 0) || (b[17] != 0 && !self.fetched)) as u8;
+        b[18] = (((new.buttons & BUTTON_L5) > 0) || (b[18] != 0 && !self.fetched)) as u8;
 
         self.last_update_time = Instant::now();
         self.fetched = false;
