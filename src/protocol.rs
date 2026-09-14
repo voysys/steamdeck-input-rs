@@ -194,6 +194,19 @@ pub struct ValveInReport {
 const_assert_eq!(mem::size_of::<ValveInReport>(), 64);
 
 impl ValveInReport {
+    /// Parse a complete hidraw packet. Non-state reports do not imply disconnect.
+    pub fn parse_deck_state(bytes: &[u8]) -> Result<Option<SteamDeckStatePacket>, String> {
+        let report = bytemuck::try_pod_read_unaligned::<Self>(bytes)
+            .map_err(|e| format!("invalid report size {}: {e}", bytes.len()))?;
+        if report.header.report_version != VALVE_IN_REPORT_MSG_VERSION {
+            return Err("unknown input report version".into());
+        }
+        if report.header.report_type != VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE {
+            return Ok(None);
+        }
+        report.to_deck_state().map(Some)
+    }
+
     pub fn to_deck_state(&self) -> Result<SteamDeckStatePacket, String> {
         if self.header.report_version != VALVE_IN_REPORT_MSG_VERSION
             || self.header.report_type != VALVE_IN_REPORT_MESSAGE_ID_CONTROLLER_DECK_STATE
