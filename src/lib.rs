@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bytemuck::{from_bytes, from_bytes_mut};
+use bytemuck::from_bytes_mut;
 use hidapi::{HidDevice, HidError, HidResult};
 use protocol::{
     DigitalMapping, FeatureReportMsg, SteamDeckStatePacket, ValveInReport, BUTTON_A, BUTTON_B,
@@ -86,8 +86,7 @@ impl GamepadUpdateState {
 
 struct SteamdeckShared {
     run: AtomicBool,
-    found: AtomicBool,
-    state: Mutex<GamepadUpdateState>,
+    state: Mutex<Option<GamepadUpdateState>>,
 }
 
 pub struct SteamdeckInput {
@@ -97,32 +96,49 @@ pub struct SteamdeckInput {
 
 impl SteamdeckInput {
     pub fn new() -> SteamdeckInput {
+        Self::try_new().expect("failed to start Steam Deck input worker")
+    }
+
+    /// Starts one owned worker. Dropping the reader stops and joins it.
+    pub fn try_new() -> std::io::Result<SteamdeckInput> {
         let shared = Arc::new(SteamdeckShared {
-            found: AtomicBool::new(false),
             run: AtomicBool::new(true),
-            state: Mutex::new(GamepadUpdateState {
-                gamepad: Default::default(),
-                last_update_time: Instant::now(),
-                fetched: false,
-            }),
+            state: Mutex::new(None),
         });
-
-        let thread = Some(thread::spawn({
-            let shared = shared.clone();
-            move || {
-                steamdeck_input_thread(shared);
-            }
-        }));
-
-        SteamdeckInput { shared, thread }
+        let worker_shared = Arc::clone(&shared);
+        let thread = thread::Builder::new()
+            .name("Steam Deck input".into())
+            .spawn(move || steamdeck_input_thread(worker_shared))?;
+        Ok(SteamdeckInput {
+            shared,
+            thread: Some(thread),
+        })
     }
 
     pub fn fetch(&self) -> Option<GamepadState> {
-        if self.shared.found.load(Ordering::SeqCst) {
-            self.shared.state.lock().unwrap().fetch()
-        } else {
-            None
+        self.read_state(true)
+    }
+
+    /// Inspect availability/state without consuming retained short presses.
+    pub fn peek(&self) -> Option<GamepadState> {
+        self.read_state(false)
+    }
+
+    fn read_state(&self, consume: bool) -> Option<GamepadState> {
+        let mut state = self.shared.state.lock().unwrap();
+        let result = state.as_mut().and_then(|state| {
+            if consume {
+                state.fetch()
+            } else if state.last_update_time.elapsed() < Duration::from_millis(100) {
+                Some(state.gamepad)
+            } else {
+                None
+            }
+        });
+        if result.is_none() {
+            *state = None;
         }
+        result
     }
 }
 
@@ -136,6 +152,7 @@ impl Drop for SteamdeckInput {
     fn drop(&mut self) {
         self.shared.run.store(false, Ordering::SeqCst);
         if let Some(thread) = self.thread.take() {
+            thread.thread().unpark();
             thread.join().ok();
         }
     }
@@ -162,64 +179,140 @@ impl From<String> for SteamDeckInputError {
 const STEAMDECK_VID_PID: (u16, u16) = (0x28de, 0x1205);
 
 fn steamdeck_input_thread(shared: Arc<SteamdeckShared>) {
-    'retry: while shared.run.load(Ordering::SeqCst) {
-        if let Err(e) = handle_steam_deck_device(&shared) {
-            log::error!("SteamDeckError: {e:?}");
-        }
-
-        shared.found.store(false, Ordering::SeqCst);
-        for _ in 0..100 {
-            if !shared.run.load(Ordering::SeqCst) {
-                continue 'retry;
+    let mut last_error = None;
+    let mut retry_delay = Duration::from_millis(100);
+    while shared.run.load(Ordering::Relaxed) {
+        let result = handle_steam_deck_device(&shared);
+        *shared.state.lock().unwrap() = None;
+        let error = result.err().map(|e| format!("{e:?}"));
+        if error != last_error {
+            if let Some(error) = &error {
+                log::warn!("Steam Deck input unavailable: {error}");
             }
-            thread::sleep(Duration::from_millis(16));
+            last_error = error;
+        }
+        // Unpark on shutdown, including when no device is present.
+        if shared.run.load(Ordering::Relaxed) {
+            thread::park_timeout(retry_delay);
+            retry_delay = (retry_delay * 2).min(Duration::from_secs(2));
         }
     }
 }
 
 fn handle_steam_deck_device(shared: &SteamdeckShared) -> Result<(), SteamDeckInputError> {
-    let api = hidapi::HidApi::new().unwrap();
-
-    let Some(device) = ({
-        let mut device = None;
-
-        for device_info in api.device_list() {
-            if device_info.vendor_id() == STEAMDECK_VID_PID.0
-                && device_info.product_id() == STEAMDECK_VID_PID.1
-                && device_info.interface_number() == 2
-            {
-                device = Some(device_info.open_device(&api)?);
-            }
-        }
-        device
-    }) else {
-        // Not finding a device is not an error
-        return Ok(());
-    };
-
-    shared.found.store(true, Ordering::SeqCst);
-
-    disable_deck_lizard_mode(&device)?;
-
-    let mut lizard_counter = 0;
-
-    while shared.run.load(Ordering::SeqCst) {
-        let mut buf = [0u8; 64];
-        let read = device.read_timeout(&mut buf[..], 16)?;
-        if read > 0 {
-            let report = from_bytes::<ValveInReport>(&buf[..read]).to_deck_state()?;
-            shared.state.lock().unwrap().update(&report);
-        } else {
-            return Err("Read returned wrong size".to_string().into());
-        }
-
-        lizard_counter += 1;
-        if lizard_counter > 200 {
-            lizard_counter = 0;
-            disable_deck_lizard_mode(&device)?;
+    let api = hidapi::HidApi::new()?;
+    let mut candidates = std::collections::BTreeMap::new();
+    for info in api.device_list() {
+        if (info.vendor_id(), info.product_id()) == STEAMDECK_VID_PID
+            && info.interface_number() == 2
+            && info.usage_page() == 0xffff
+            && info.usage() == 1
+        {
+            candidates.entry(info.path().to_owned()).or_insert(info);
         }
     }
+    if candidates.is_empty() {
+        return Ok(());
+    }
+    if candidates.len() != 1 {
+        return Err(
+            "multiple Steam Deck gamepad paths; refusing ambiguous ownership"
+                .to_string()
+                .into(),
+        );
+    }
+    let (path, info) = candidates.into_iter().next().unwrap();
+    let device = info
+        .open_device(&api)
+        .map_err(|e| format!("open {}: {e}", path.to_string_lossy()))?;
+    log::debug!("Steam Deck hidraw opened {}", path.to_string_lossy());
+    let result = read_device(shared, &device);
+    *shared.state.lock().unwrap() = None;
+    drop(device);
+    log::debug!("Steam Deck hidraw closed {}", path.to_string_lossy());
+    result.map_err(|e| format!("read/configure {}: {e:?}", path.to_string_lossy()).into())
+}
 
+trait Controller {
+    fn read(&self, bytes: &mut [u8]) -> HidResult<usize>;
+    fn configure(&self) -> HidResult<()>;
+}
+
+impl Controller for HidDevice {
+    fn read(&self, bytes: &mut [u8]) -> HidResult<usize> {
+        self.read_timeout(bytes, 16)
+    }
+    fn configure(&self) -> HidResult<()> {
+        disable_deck_lizard_mode(self)
+    }
+}
+
+struct ClearStateOnClose<'a>(&'a SteamdeckShared);
+
+impl Drop for ClearStateOnClose<'_> {
+    fn drop(&mut self) {
+        *self.0.state.lock().unwrap() = None;
+    }
+}
+
+fn read_device(
+    shared: &SteamdeckShared,
+    device: &impl Controller,
+) -> Result<(), SteamDeckInputError> {
+    let _clear_on_close = ClearStateOnClose(shared);
+    let mut configured = false;
+    let mut warned_invalid = false;
+    while shared.run.load(Ordering::Relaxed) {
+        let mut bytes = [0; 256];
+        let count = match device.read(&mut bytes) {
+            Ok(count) => count,
+            Err(_) if !shared.run.load(Ordering::Relaxed) => break,
+            Err(error) => return Err(error.into()),
+        };
+        if count == 0 {
+            // No new data: keep ownership, but never expose stale input.
+            let mut state = shared.state.lock().unwrap();
+            if state
+                .as_ref()
+                .is_some_and(|s| s.last_update_time.elapsed() >= Duration::from_millis(100))
+            {
+                *state = None;
+            }
+            continue;
+        }
+        let report = match ValveInReport::parse_deck_state(&bytes[..count]) {
+            Ok(Some(report)) => report,
+            Ok(None) => continue,
+            Err(error) => {
+                if !warned_invalid {
+                    log::warn!("Ignoring malformed Steam Deck input: {error}");
+                    warned_invalid = true;
+                }
+                continue;
+            }
+        };
+        if !configured {
+            // Configure once per open device, after validating its input format.
+            // Timeouts and subsequent reports do not require rewriting mappings.
+            device.configure()?;
+            configured = true;
+            log::info!("Steam Deck input available via hidraw");
+            continue; // Publish a fresh report received after configuration.
+        }
+        let mut state = shared.state.lock().unwrap();
+        if state
+            .as_ref()
+            .is_some_and(|s| s.last_update_time.elapsed() >= Duration::from_millis(100))
+        {
+            *state = None;
+        }
+        let state = state.get_or_insert(GamepadUpdateState {
+            gamepad: GamepadState::default(),
+            last_update_time: Instant::now(),
+            fetched: true,
+        });
+        state.update(&report);
+    }
     Ok(())
 }
 
@@ -255,3 +348,6 @@ fn disable_deck_lizard_mode(device: &HidDevice) -> HidResult<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
