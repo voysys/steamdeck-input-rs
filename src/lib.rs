@@ -292,9 +292,8 @@ fn read_device(
             }
         };
         if !configured {
-            // Confirm the intended interface with an actual state before writes.
-            // The isolated experiment verified this sequence without periodic
-            // reapplication. Do not race other clients by replaying it on reads.
+            // Configure once per open device, after validating its input format.
+            // Timeouts and subsequent reports do not require rewriting mappings.
             device.configure()?;
             configured = true;
             log::info!("Steam Deck input available via hidraw");
